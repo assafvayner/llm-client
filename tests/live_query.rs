@@ -5,7 +5,7 @@
 //! Actions does) a missing key hard-fails the test, so a misconfigured secret
 //! is caught rather than silently skipped.
 //!
-//! Env vars: `OPENAI_API_KEY`, `HF_TOKEN`, `GEMINI_API_KEY`.
+//! Env vars: `HF_TOKEN`, `GEMINI_API_KEY`.
 
 use llm_client::{LLMClient, LLMRequest, Message};
 
@@ -49,16 +49,6 @@ async fn assert_basic_query(client: &dyn LLMClient, model: &str) {
     );
 }
 
-#[cfg(feature = "openai")]
-#[tokio::test]
-async fn openai_basic_query() {
-    let Some(key) = key_or_skip("OPENAI_API_KEY") else {
-        return;
-    };
-    let client = llm_client::OpenAIClient::builder(key).build();
-    assert_basic_query(&client, "gpt-4o-mini").await;
-}
-
 #[cfg(feature = "hf")]
 #[tokio::test]
 async fn hf_basic_query() {
@@ -76,5 +66,5 @@ async fn gemini_basic_query() {
         return;
     };
     let client = llm_client::GeminiClient::builder(key).build();
-    assert_basic_query(&client, "gemini-2.0-flash").await;
+    assert_basic_query(&client, "gemini-3.1-flash-lite").await;
 }
