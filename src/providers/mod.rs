@@ -4,6 +4,8 @@ mod claude;
 mod gemini;
 #[cfg(feature = "hf")]
 mod hf;
+#[cfg(feature = "llama-cpp")]
+mod llama_cpp;
 #[cfg(feature = "ollama")]
 mod ollama;
 #[cfg(feature = "openai")]
@@ -21,7 +23,8 @@ mod openai_compat;
         feature = "openai",
         feature = "gemini",
         feature = "hf",
-        feature = "ollama"
+        feature = "ollama",
+        feature = "llama-cpp"
     )
 ))]
 mod tests;
@@ -32,6 +35,10 @@ pub use claude::{ClaudeClient, ClaudeClientBuilder};
 pub use gemini::{GeminiClient, GeminiClientBuilder};
 #[cfg(feature = "hf")]
 pub use hf::{HfClient, HfClientBuilder};
+#[cfg(all(feature = "llama-cpp", unix))]
+pub use llama_cpp::LlamaCppUdsBuilder;
+#[cfg(feature = "llama-cpp")]
+pub use llama_cpp::{LlamaCppClient, LlamaCppHttpBuilder};
 #[cfg(feature = "ollama")]
 pub use ollama::{OllamaClient, OllamaClientBuilder};
 #[cfg(feature = "openai")]

@@ -21,12 +21,16 @@ pub use client::{LLMClient, LLMStreamingClient, TextSink};
 pub use error::LLMError;
 #[cfg(feature = "mock")]
 pub use mock::{MockClient, PendingClient, ScriptedStreamClient};
+#[cfg(all(feature = "llama-cpp", unix))]
+pub use providers::LlamaCppUdsBuilder;
 #[cfg(feature = "claude")]
 pub use providers::{ClaudeClient, ClaudeClientBuilder};
 #[cfg(feature = "gemini")]
 pub use providers::{GeminiClient, GeminiClientBuilder};
 #[cfg(feature = "hf")]
 pub use providers::{HfClient, HfClientBuilder};
+#[cfg(feature = "llama-cpp")]
+pub use providers::{LlamaCppClient, LlamaCppHttpBuilder};
 #[cfg(feature = "ollama")]
 pub use providers::{OllamaClient, OllamaClientBuilder};
 #[cfg(feature = "openai")]

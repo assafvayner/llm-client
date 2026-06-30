@@ -301,6 +301,14 @@ impl OpenAICompatClientBuilder {
     }
 }
 
+#[cfg(test)]
+impl OpenAICompatClient {
+    /// The fully-formed chat-completions endpoint URL. Test-only accessor.
+    pub(crate) fn endpoint(&self) -> &str {
+        &self.url
+    }
+}
+
 /// The default HTTP client used by OpenAI-compatible providers when the caller
 /// does not supply one.
 pub(crate) fn default_client() -> reqwest::Client {

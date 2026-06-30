@@ -11,11 +11,12 @@ keywords = ["llm", "ai", "openai", "anthropic", "client"]
 categories = ["api-bindings"]
 
 [features]
-default = ["claude", "openai", "gemini", "ollama", "hf", "openai-compat"]
+default = ["claude", "openai", "gemini", "ollama", "hf", "llama-cpp", "openai-compat"]
 claude = []
 openai = ["openai-compat"]
 gemini = ["openai-compat"]
 hf = ["openai-compat"]
+llama-cpp = ["openai-compat"]
 ollama = []
 openai-compat = []
 mock = []
@@ -29,4 +30,4 @@ futures-util = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }

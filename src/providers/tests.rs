@@ -12,6 +12,10 @@ use crate::GeminiClient;
 #[cfg(feature = "hf")]
 use crate::HfClient;
 use crate::LLMClient;
+#[cfg(all(feature = "llama-cpp", unix))]
+use crate::LLMStreamingClient;
+#[cfg(feature = "llama-cpp")]
+use crate::LlamaCppClient;
 #[cfg(feature = "ollama")]
 use crate::OllamaClient;
 #[cfg(feature = "openai")]
@@ -19,7 +23,15 @@ use crate::OpenAIClient;
 #[cfg(any(feature = "claude", feature = "openai", feature = "ollama"))]
 use crate::ToolCall;
 #[cfg(any(feature = "claude", feature = "openai", feature = "ollama", feature = "hf"))]
-use crate::{LLMRequest, Message, ToolDef};
+use crate::ToolDef;
+#[cfg(any(
+    feature = "claude",
+    feature = "openai",
+    feature = "ollama",
+    feature = "hf",
+    all(feature = "llama-cpp", unix)
+))]
+use crate::{LLMRequest, Message};
 
 #[cfg(any(feature = "claude", feature = "openai", feature = "ollama"))]
 fn make_request() -> LLMRequest {
@@ -407,6 +419,127 @@ fn openai_parse_response_empty_content_with_tool_calls() {
 fn gemini_name() {
     let provider = GeminiClient::new("k".to_string(), None);
     assert_eq!(provider.name(), "gemini");
+}
+
+// ---------------------------------------------------------------------------
+// LlamaCppClient tests
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "llama-cpp")]
+#[test]
+fn llama_cpp_name_and_endpoint() {
+    let client = LlamaCppClient::local().build();
+    assert_eq!(client.name(), "llama.cpp");
+    assert_eq!(client.endpoint(), "http://localhost:8080/v1/chat/completions");
+
+    // Custom base URL, trailing slash trimmed.
+    let custom = LlamaCppClient::http("http://example:9999/").build();
+    assert_eq!(custom.endpoint(), "http://example:9999/v1/chat/completions");
+}
+
+#[cfg(all(feature = "llama-cpp", unix))]
+#[test]
+fn llama_cpp_uds_endpoint() {
+    let client = LlamaCppClient::unix_socket("/run/llama.sock").build();
+    assert_eq!(client.name(), "llama.cpp");
+    // The host is synthetic; only the path matters over the socket.
+    assert_eq!(client.endpoint(), "http://localhost/v1/chat/completions");
+}
+
+#[cfg(all(feature = "llama-cpp", unix))]
+#[tokio::test]
+async fn llama_cpp_uds_round_trip() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixListener;
+
+    let path = std::env::temp_dir().join(format!("llm-client-llama-uds-{}.sock", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut buf = [0u8; 4096];
+        let _ = stream.read(&mut buf).await.unwrap();
+        let body = r#"{"choices":[{"message":{"role":"assistant","content":"Hello from llama.cpp"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":4}}"#;
+        let resp = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        stream.write_all(resp.as_bytes()).await.unwrap();
+        stream.shutdown().await.unwrap();
+    });
+
+    let client = LlamaCppClient::unix_socket(&path).build();
+    let req = LLMRequest {
+        model: "test-model".to_string(),
+        system: "sys".to_string(),
+        messages: vec![Message::User("hi".to_string())],
+        tools: vec![],
+        max_tokens: 64,
+    };
+    let resp = client.generate(&req).await.unwrap();
+
+    assert_eq!(resp.text.as_deref(), Some("Hello from llama.cpp"));
+    assert_eq!(resp.stop_reason, "stop");
+    assert_eq!(resp.usage.input_tokens, 3);
+    assert_eq!(resp.usage.output_tokens, 4);
+
+    server.await.unwrap();
+    let _ = std::fs::remove_file(&path);
+}
+
+#[cfg(all(feature = "llama-cpp", unix))]
+#[tokio::test]
+async fn llama_cpp_uds_streaming() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixListener;
+
+    let path = std::env::temp_dir().join(format!("llm-client-llama-uds-stream-{}.sock", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut buf = [0u8; 4096];
+        let _ = stream.read(&mut buf).await.unwrap();
+        let body = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":2}}\n\n",
+            "data: [DONE]\n\n",
+        );
+        let resp = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        stream.write_all(resp.as_bytes()).await.unwrap();
+        stream.shutdown().await.unwrap();
+    });
+
+    let client = LlamaCppClient::unix_socket(&path).build();
+    let req = LLMRequest {
+        model: "test-model".to_string(),
+        system: "sys".to_string(),
+        messages: vec![Message::User("hi".to_string())],
+        tools: vec![],
+        max_tokens: 64,
+    };
+
+    let mut acc = String::new();
+    let resp = {
+        let mut sink = |s: &str| acc.push_str(s);
+        client.stream(&req, &mut sink).await.unwrap()
+    };
+
+    assert_eq!(acc, "Hello");
+    assert_eq!(resp.text.as_deref(), Some("Hello"));
+    assert_eq!(resp.stop_reason, "stop");
+    assert_eq!(resp.usage.output_tokens, 2);
+
+    server.await.unwrap();
+    let _ = std::fs::remove_file(&path);
 }
 
 // ---------------------------------------------------------------------------
