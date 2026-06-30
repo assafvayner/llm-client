@@ -2,12 +2,12 @@
 //!
 //! Run with: `OPENAI_API_KEY=... cargo run --example tool_use`
 
-use llm_client::{LLMClient, LLMRequest, Message, OpenAIProvider, ToolCall, ToolDef};
+use llm_client::{LLMClient, LLMRequest, Message, OpenAIClient, ToolCall, ToolDef};
 use serde_json::json;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let provider = OpenAIProvider::from_env()?;
+    let provider = OpenAIClient::from_env()?;
 
     let weather = ToolDef {
         name: "get_weather".into(),

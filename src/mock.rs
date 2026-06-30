@@ -4,15 +4,15 @@ use std::sync::Mutex;
 use crate::{LLMClient, LLMError, LLMRequest, LLMResponse, LLMStreamingClient, TextSink, Usage};
 
 // ---------------------------------------------------------------------------
-// PendingProvider
+// PendingClient
 // ---------------------------------------------------------------------------
 
 /// Test provider whose streaming call never completes on its own — it awaits
 /// forever, so a cancellation race can interrupt it.
-pub struct PendingProvider;
+pub struct PendingClient;
 
 #[async_trait::async_trait]
-impl LLMClient for PendingProvider {
+impl LLMClient for PendingClient {
     fn name(&self) -> &str {
         "pending"
     }
@@ -22,14 +22,14 @@ impl LLMClient for PendingProvider {
 }
 
 #[async_trait::async_trait]
-impl LLMStreamingClient for PendingProvider {
+impl LLMStreamingClient for PendingClient {
     async fn stream(&self, _req: &LLMRequest, _on_text: &mut TextSink<'_>) -> Result<LLMResponse, LLMError> {
         std::future::pending().await
     }
 }
 
 // ---------------------------------------------------------------------------
-// MockProvider
+// MockClient
 // ---------------------------------------------------------------------------
 
 /// A provider backed by a queue of pre-scripted responses.
@@ -39,12 +39,12 @@ impl LLMStreamingClient for PendingProvider {
 ///
 /// Use `last_request_message_count()` to inspect what the agent sent on the
 /// most recent call — useful for testing conversation-memory behaviour.
-pub struct MockProvider {
+pub struct MockClient {
     responses: Mutex<VecDeque<LLMResponse>>,
     last_message_count: Mutex<usize>,
 }
 
-impl MockProvider {
+impl MockClient {
     pub fn new(responses: impl IntoIterator<Item = LLMResponse>) -> Self {
         Self {
             responses: Mutex::new(responses.into_iter().collect()),
@@ -59,14 +59,14 @@ impl MockProvider {
 }
 
 #[async_trait::async_trait]
-impl LLMClient for MockProvider {
+impl LLMClient for MockClient {
     async fn generate(&self, req: &LLMRequest) -> Result<LLMResponse, LLMError> {
         *self.last_message_count.lock().unwrap() = req.messages.len();
         self.responses
             .lock()
             .unwrap()
             .pop_front()
-            .ok_or_else(|| LLMError::Provider("MockProvider: response queue exhausted".to_string()))
+            .ok_or_else(|| LLMError::Provider("MockClient: response queue exhausted".to_string()))
     }
 
     fn name(&self) -> &str {
@@ -75,15 +75,15 @@ impl LLMClient for MockProvider {
 }
 
 // ---------------------------------------------------------------------------
-// ScriptedStreamProvider
+// ScriptedStreamClient
 // ---------------------------------------------------------------------------
 
 /// Test provider that streams pre-scripted text fragments per round-trip.
-pub struct ScriptedStreamProvider {
+pub struct ScriptedStreamClient {
     rounds: Mutex<VecDeque<Vec<String>>>,
 }
 
-impl ScriptedStreamProvider {
+impl ScriptedStreamClient {
     pub fn new<I, J, S>(rounds: I) -> Self
     where
         I: IntoIterator<Item = J>,
@@ -101,7 +101,7 @@ impl ScriptedStreamProvider {
 }
 
 #[async_trait::async_trait]
-impl LLMStreamingClient for ScriptedStreamProvider {
+impl LLMStreamingClient for ScriptedStreamClient {
     async fn stream(&self, _req: &LLMRequest, on_text: &mut TextSink<'_>) -> Result<LLMResponse, LLMError> {
         let frags = self.rounds.lock().unwrap().pop_front().unwrap_or_default();
         let mut text = String::new();

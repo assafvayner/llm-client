@@ -9,7 +9,7 @@ mod ollama;
 #[cfg(feature = "openai")]
 mod openai;
 // The shared OpenAI-compatible dialect (request/response mapping, HTTP helpers,
-// stream accumulator) plus the generic `OpenAICompatProvider`. The openai/gemini/hf
+// stream accumulator) plus the generic `OpenAICompatClient`. The openai/gemini/hf
 // providers all enable `openai-compat`, so this covers them too.
 #[cfg(feature = "openai-compat")]
 mod openai_compat;
@@ -27,14 +27,14 @@ mod openai_compat;
 mod tests;
 
 #[cfg(feature = "claude")]
-pub use claude::{ClaudeProvider, ClaudeProviderBuilder};
+pub use claude::{ClaudeClient, ClaudeClientBuilder};
 #[cfg(feature = "gemini")]
-pub use gemini::{GeminiProvider, GeminiProviderBuilder};
+pub use gemini::{GeminiClient, GeminiClientBuilder};
 #[cfg(feature = "hf")]
-pub use hf::{HfProvider, HfProviderBuilder};
+pub use hf::{HfClient, HfClientBuilder};
 #[cfg(feature = "ollama")]
-pub use ollama::{OllamaProvider, OllamaProviderBuilder};
+pub use ollama::{OllamaClient, OllamaClientBuilder};
 #[cfg(feature = "openai")]
-pub use openai::{OpenAIProvider, OpenAIProviderBuilder};
+pub use openai::{OpenAIClient, OpenAIClientBuilder};
 #[cfg(feature = "openai-compat")]
-pub use openai_compat::{OpenAICompatProvider, OpenAICompatProviderBuilder};
+pub use openai_compat::{OpenAICompatClient, OpenAICompatClientBuilder};

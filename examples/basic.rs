@@ -4,12 +4,12 @@
 //!
 //! Run with: `HF_TOKEN=... cargo run --example basic`
 
-use llm_client::{HfProvider, LLMClient, LLMRequest, Message};
+use llm_client::{HfClient, LLMClient, LLMRequest, Message};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // `from_env` reads HF_TOKEN; equivalent to `HfProvider::builder(token).build()`.
-    let provider = HfProvider::from_env()?;
+    // `from_env` reads HF_TOKEN; equivalent to `HfClient::builder(token).build()`.
+    let provider = HfClient::from_env()?;
 
     let req = LLMRequest {
         model: "meta-llama/Llama-3.3-70B-Instruct".into(),

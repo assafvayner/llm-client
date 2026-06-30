@@ -2,12 +2,12 @@ use serde_json::{Value, json};
 
 use crate::{LLMError, LLMRequest, LLMResponse, Message, ToolCall, Usage};
 
-pub struct OllamaProvider {
+pub struct OllamaClient {
     base_url: String,
     client: reqwest::Client,
 }
 
-impl OllamaProvider {
+impl OllamaClient {
     pub fn new(base_url: Option<String>) -> Self {
         let mut builder = Self::builder();
         builder.base_url = base_url;
@@ -16,8 +16,8 @@ impl OllamaProvider {
 
     /// Start building a provider. Ollama needs no API key; the base URL and HTTP
     /// client are optional.
-    pub fn builder() -> OllamaProviderBuilder {
-        OllamaProviderBuilder {
+    pub fn builder() -> OllamaClientBuilder {
+        OllamaClientBuilder {
             base_url: None,
             client: None,
         }
@@ -101,13 +101,13 @@ impl OllamaProvider {
     }
 }
 
-/// Builder for [`OllamaProvider`].
-pub struct OllamaProviderBuilder {
+/// Builder for [`OllamaClient`].
+pub struct OllamaClientBuilder {
     base_url: Option<String>,
     client: Option<reqwest::Client>,
 }
 
-impl OllamaProviderBuilder {
+impl OllamaClientBuilder {
     /// Override the API base URL (defaults to `http://localhost:11434`).
     pub fn base_url(mut self, base_url: impl Into<String>) -> Self {
         self.base_url = Some(base_url.into());
@@ -120,9 +120,9 @@ impl OllamaProviderBuilder {
         self
     }
 
-    /// Build the [`OllamaProvider`].
-    pub fn build(self) -> OllamaProvider {
-        OllamaProvider {
+    /// Build the [`OllamaClient`].
+    pub fn build(self) -> OllamaClient {
+        OllamaClient {
             base_url: self.base_url.unwrap_or_else(|| "http://localhost:11434".to_string()),
             client: self.client.unwrap_or_default(),
         }
@@ -162,7 +162,7 @@ fn map_message(msg: &Message) -> Value {
 }
 
 #[async_trait::async_trait]
-impl crate::LLMClient for OllamaProvider {
+impl crate::LLMClient for OllamaClient {
     fn name(&self) -> &str {
         "ollama"
     }

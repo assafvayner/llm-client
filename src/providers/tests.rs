@@ -6,16 +6,16 @@ use serde_json::json;
 #[cfg(feature = "hf")]
 use super::openai_compat::{openai_build_body, openai_parse_response};
 #[cfg(feature = "claude")]
-use crate::ClaudeProvider;
+use crate::ClaudeClient;
 #[cfg(feature = "gemini")]
-use crate::GeminiProvider;
+use crate::GeminiClient;
 #[cfg(feature = "hf")]
-use crate::HfProvider;
+use crate::HfClient;
 use crate::LLMClient;
 #[cfg(feature = "ollama")]
-use crate::OllamaProvider;
+use crate::OllamaClient;
 #[cfg(feature = "openai")]
-use crate::OpenAIProvider;
+use crate::OpenAIClient;
 #[cfg(any(feature = "claude", feature = "openai", feature = "ollama"))]
 use crate::ToolCall;
 #[cfg(any(feature = "claude", feature = "openai", feature = "ollama", feature = "hf"))]
@@ -58,13 +58,13 @@ fn make_request() -> LLMRequest {
 }
 
 // ---------------------------------------------------------------------------
-// ClaudeProvider tests
+// ClaudeClient tests
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "claude")]
 #[test]
 fn claude_build_body_maps_messages_and_tools() {
-    let provider = ClaudeProvider::new("key".to_string(), None);
+    let provider = ClaudeClient::new("key".to_string(), None);
     let req = make_request();
     let body = provider.build_body(&req);
 
@@ -129,7 +129,7 @@ fn claude_parse_response_text_and_tools() {
         "usage": { "input_tokens": 10, "output_tokens": 5 }
     });
 
-    let resp = ClaudeProvider::parse_response(&sample).unwrap();
+    let resp = ClaudeClient::parse_response(&sample).unwrap();
 
     assert_eq!(resp.text.as_deref(), Some("Here is the result: "));
     assert_eq!(resp.stop_reason, "tool_use");
@@ -152,7 +152,7 @@ fn claude_parse_response_text_only() {
         "usage": { "input_tokens": 20, "output_tokens": 7 }
     });
 
-    let resp = ClaudeProvider::parse_response(&sample).unwrap();
+    let resp = ClaudeClient::parse_response(&sample).unwrap();
 
     assert_eq!(resp.text.as_deref(), Some("Just a text answer."));
     assert!(resp.tool_calls.is_empty());
@@ -171,7 +171,7 @@ fn claude_parse_response_ignores_thinking_blocks() {
         "usage": { "input_tokens": 30, "output_tokens": 10 }
     });
 
-    let resp = ClaudeProvider::parse_response(&sample).unwrap();
+    let resp = ClaudeClient::parse_response(&sample).unwrap();
 
     assert_eq!(resp.text.as_deref(), Some("Answer after thinking."));
     assert!(resp.tool_calls.is_empty());
@@ -180,18 +180,18 @@ fn claude_parse_response_ignores_thinking_blocks() {
 #[cfg(feature = "claude")]
 #[test]
 fn claude_name() {
-    let provider = ClaudeProvider::new("k".to_string(), None);
+    let provider = ClaudeClient::new("k".to_string(), None);
     assert_eq!(provider.name(), "claude");
 }
 
 // ---------------------------------------------------------------------------
-// OpenAIProvider tests
+// OpenAIClient tests
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "openai")]
 #[test]
 fn openai_build_body_and_parse() {
-    let provider = OpenAIProvider::new("key".to_string(), None);
+    let provider = OpenAIClient::new("key".to_string(), None);
     let req = make_request();
     let body = provider.build_body(&req);
 
@@ -232,7 +232,7 @@ fn openai_build_body_and_parse() {
         }
     });
 
-    let resp = OpenAIProvider::parse_response(&sample).unwrap();
+    let resp = OpenAIClient::parse_response(&sample).unwrap();
 
     assert!(resp.text.is_none());
     assert_eq!(resp.tool_calls.len(), 1);
@@ -247,18 +247,18 @@ fn openai_build_body_and_parse() {
 #[cfg(feature = "openai")]
 #[test]
 fn openai_name() {
-    let provider = OpenAIProvider::new("k".to_string(), None);
+    let provider = OpenAIClient::new("k".to_string(), None);
     assert_eq!(provider.name(), "openai");
 }
 
 // ---------------------------------------------------------------------------
-// OllamaProvider tests
+// OllamaClient tests
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "ollama")]
 #[test]
 fn ollama_build_body_and_parse() {
-    let provider = OllamaProvider::new(None);
+    let provider = OllamaClient::new(None);
     let req = make_request();
     let body = provider.build_body(&req);
 
@@ -289,7 +289,7 @@ fn ollama_build_body_and_parse() {
         "eval_count": 4
     });
 
-    let resp = OllamaProvider::parse_response(&sample).unwrap();
+    let resp = OllamaClient::parse_response(&sample).unwrap();
 
     assert!(resp.text.is_none()); // empty string → None
     assert_eq!(resp.tool_calls.len(), 1);
@@ -304,18 +304,18 @@ fn ollama_build_body_and_parse() {
 #[cfg(feature = "ollama")]
 #[test]
 fn ollama_name() {
-    let provider = OllamaProvider::new(None);
+    let provider = OllamaClient::new(None);
     assert_eq!(provider.name(), "ollama");
 }
 
 // ---------------------------------------------------------------------------
-// HfProvider tests
+// HfClient tests
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "hf")]
 #[test]
 fn hf_name() {
-    let provider = HfProvider::new("k".to_string(), None);
+    let provider = HfClient::new("k".to_string(), None);
     assert_eq!(provider.name(), "hf");
 }
 
@@ -399,18 +399,18 @@ fn openai_parse_response_empty_content_with_tool_calls() {
 }
 
 // ---------------------------------------------------------------------------
-// GeminiProvider tests
+// GeminiClient tests
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "gemini")]
 #[test]
 fn gemini_name() {
-    let provider = GeminiProvider::new("k".to_string(), None);
+    let provider = GeminiClient::new("k".to_string(), None);
     assert_eq!(provider.name(), "gemini");
 }
 
 // ---------------------------------------------------------------------------
-// HfProvider live test — skipped when HF_TOKEN is unset
+// HfClient live test — skipped when HF_TOKEN is unset
 // ---------------------------------------------------------------------------
 //
 // Run with:
@@ -427,7 +427,7 @@ async fn hf_live_tool_call() {
         },
     };
 
-    let provider = HfProvider::new(key, None);
+    let provider = HfClient::new(key, None);
     let req = LLMRequest {
         model: "zai-org/GLM-5.2:together".to_string(),
         system: "".to_string(),
@@ -476,7 +476,7 @@ async fn live_claude_say_hi() {
         },
     };
 
-    let provider = ClaudeProvider::new(key, None);
+    let provider = ClaudeClient::new(key, None);
     let req = LLMRequest {
         model: "claude-opus-4-8".to_string(),
         system: "You are helpful.".to_string(),

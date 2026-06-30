@@ -1,17 +1,17 @@
 //! Streaming completion against the Hugging Face router.
 //!
-//! Same streaming interface as the Claude example — `HfProvider` speaks the
+//! Same streaming interface as the Claude example — `HfClient` speaks the
 //! OpenAI-compatible SSE dialect, so it implements `LLMStreamingClient` too.
 //!
 //! Run with: `HF_TOKEN=... cargo run --example streaming_hf`
 
 use std::io::Write;
 
-use llm_client::{HfProvider, LLMRequest, LLMStreamingClient, Message};
+use llm_client::{HfClient, LLMRequest, LLMStreamingClient, Message};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let provider = HfProvider::from_env()?;
+    let provider = HfClient::from_env()?;
 
     let req = LLMRequest {
         model: "meta-llama/Llama-3.3-70B-Instruct".into(),

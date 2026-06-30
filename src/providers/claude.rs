@@ -3,13 +3,13 @@ use serde_json::{Value, json};
 
 use crate::{LLMError, LLMRequest, LLMResponse, Message, ToolCall, Usage};
 
-pub struct ClaudeProvider {
+pub struct ClaudeClient {
     api_key: String,
     base_url: String,
     client: reqwest::Client,
 }
 
-impl ClaudeProvider {
+impl ClaudeClient {
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         let mut builder = Self::builder(api_key);
         builder.base_url = base_url;
@@ -18,8 +18,8 @@ impl ClaudeProvider {
 
     /// Start building a provider. The API key is required; the base URL and HTTP
     /// client are optional.
-    pub fn builder(api_key: impl Into<String>) -> ClaudeProviderBuilder {
-        ClaudeProviderBuilder {
+    pub fn builder(api_key: impl Into<String>) -> ClaudeClientBuilder {
+        ClaudeClientBuilder {
             api_key: api_key.into(),
             base_url: None,
             client: None,
@@ -108,14 +108,14 @@ impl ClaudeProvider {
     }
 }
 
-/// Builder for [`ClaudeProvider`].
-pub struct ClaudeProviderBuilder {
+/// Builder for [`ClaudeClient`].
+pub struct ClaudeClientBuilder {
     api_key: String,
     base_url: Option<String>,
     client: Option<reqwest::Client>,
 }
 
-impl ClaudeProviderBuilder {
+impl ClaudeClientBuilder {
     /// Override the API base URL (defaults to `https://api.anthropic.com`).
     pub fn base_url(mut self, base_url: impl Into<String>) -> Self {
         self.base_url = Some(base_url.into());
@@ -128,9 +128,9 @@ impl ClaudeProviderBuilder {
         self
     }
 
-    /// Build the [`ClaudeProvider`].
-    pub fn build(self) -> ClaudeProvider {
-        ClaudeProvider {
+    /// Build the [`ClaudeClient`].
+    pub fn build(self) -> ClaudeClient {
+        ClaudeClient {
             api_key: self.api_key,
             base_url: self.base_url.unwrap_or_else(|| "https://api.anthropic.com".to_string()),
             client: self.client.unwrap_or_default(),
@@ -177,7 +177,7 @@ fn map_message(msg: &Message) -> Value {
 }
 
 #[async_trait::async_trait]
-impl crate::LLMClient for ClaudeProvider {
+impl crate::LLMClient for ClaudeClient {
     fn name(&self) -> &str {
         "claude"
     }
@@ -214,7 +214,7 @@ impl crate::LLMClient for ClaudeProvider {
 }
 
 #[async_trait::async_trait]
-impl crate::LLMStreamingClient for ClaudeProvider {
+impl crate::LLMStreamingClient for ClaudeClient {
     async fn stream(&self, req: &LLMRequest, on_text: &mut crate::TextSink<'_>) -> Result<LLMResponse, LLMError> {
         let url = format!("{}/v1/messages", self.base_url);
         let mut body = self.build_body(req);

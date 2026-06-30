@@ -20,17 +20,17 @@ mod mock;
 pub use client::{LLMClient, LLMStreamingClient, TextSink};
 pub use error::LLMError;
 #[cfg(feature = "mock")]
-pub use mock::{MockProvider, PendingProvider, ScriptedStreamProvider};
+pub use mock::{MockClient, PendingClient, ScriptedStreamClient};
 #[cfg(feature = "claude")]
-pub use providers::{ClaudeProvider, ClaudeProviderBuilder};
+pub use providers::{ClaudeClient, ClaudeClientBuilder};
 #[cfg(feature = "gemini")]
-pub use providers::{GeminiProvider, GeminiProviderBuilder};
+pub use providers::{GeminiClient, GeminiClientBuilder};
 #[cfg(feature = "hf")]
-pub use providers::{HfProvider, HfProviderBuilder};
+pub use providers::{HfClient, HfClientBuilder};
 #[cfg(feature = "ollama")]
-pub use providers::{OllamaProvider, OllamaProviderBuilder};
-#[cfg(feature = "openai-compat")]
-pub use providers::{OpenAICompatProvider, OpenAICompatProviderBuilder};
+pub use providers::{OllamaClient, OllamaClientBuilder};
 #[cfg(feature = "openai")]
-pub use providers::{OpenAIProvider, OpenAIProviderBuilder};
+pub use providers::{OpenAIClient, OpenAIClientBuilder};
+#[cfg(feature = "openai-compat")]
+pub use providers::{OpenAICompatClient, OpenAICompatClientBuilder};
 pub use types::{LLMRequest, LLMResponse, Message, ToolCall, ToolDef, Usage};

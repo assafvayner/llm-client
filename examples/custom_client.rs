@@ -8,7 +8,7 @@
 
 use std::time::Duration;
 
-use llm_client::{LLMClient, LLMRequest, Message, OpenAICompatProvider};
+use llm_client::{LLMClient, LLMRequest, Message, OpenAICompatClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     // name/base_url/path are required in `builder(..)`; api_key + client are optional.
-    let provider = OpenAICompatProvider::builder("local-vllm", "http://localhost:8000", "/v1/chat/completions")
+    let provider = OpenAICompatClient::builder("local-vllm", "http://localhost:8000", "/v1/chat/completions")
         .client(http) // override the default reqwest client
         .build(); // no `.api_key(..)` -> keyless server
 

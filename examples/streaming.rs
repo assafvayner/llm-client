@@ -4,11 +4,11 @@
 
 use std::io::Write;
 
-use llm_client::{ClaudeProvider, LLMRequest, LLMStreamingClient, Message};
+use llm_client::{ClaudeClient, LLMRequest, LLMStreamingClient, Message};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let provider = ClaudeProvider::from_env()?;
+    let provider = ClaudeClient::from_env()?;
 
     let req = LLMRequest {
         model: "claude-sonnet-4-6".into(),

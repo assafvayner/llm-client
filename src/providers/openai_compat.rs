@@ -2,7 +2,7 @@
 //!
 //! Holds the shared request/response mapping, the HTTP round-trip helpers, and
 //! the streaming accumulator used by every provider that speaks this dialect
-//! (`OpenAIProvider`, `GeminiProvider`, `HfProvider`), plus [`OpenAICompatProvider`]
+//! (`OpenAIClient`, `GeminiClient`, `HfClient`), plus [`OpenAICompatClient`]
 //! — a generic client for any OpenAI-compatible endpoint.
 
 use futures_util::StreamExt;
@@ -214,14 +214,14 @@ pub(crate) fn map_message(msg: &Message) -> Value {
 ///
 /// Unlike the preset providers, the base URL, path, and display name are all
 /// caller-supplied, and the API key is optional for keyless servers.
-pub struct OpenAICompatProvider {
+pub struct OpenAICompatClient {
     name: String,
     url: String,
     api_key: Option<String>,
     client: reqwest::Client,
 }
 
-impl OpenAICompatProvider {
+impl OpenAICompatClient {
     /// Create a client for an OpenAI-compatible endpoint.
     ///
     /// `base_url` is the server root (e.g. `https://api.together.xyz`) and
@@ -230,7 +230,7 @@ impl OpenAICompatProvider {
     /// returned by [`crate::LLMClient::name`]. `api_key` is sent as a bearer
     /// token when `Some`; pass `None` for keyless local servers.
     ///
-    /// For control over the HTTP client, use [`OpenAICompatProvider::builder`].
+    /// For control over the HTTP client, use [`OpenAICompatClient::builder`].
     pub fn new(
         name: impl Into<String>,
         base_url: impl Into<String>,
@@ -244,14 +244,14 @@ impl OpenAICompatProvider {
 
     /// Start building a client for an OpenAI-compatible endpoint. `name`,
     /// `base_url`, and `path` are required; the API key and HTTP client are
-    /// optional. See [`OpenAICompatProvider::new`] for the meaning of each
+    /// optional. See [`OpenAICompatClient::new`] for the meaning of each
     /// required field.
     pub fn builder(
         name: impl Into<String>,
         base_url: impl Into<String>,
         path: impl Into<String>,
-    ) -> OpenAICompatProviderBuilder {
-        OpenAICompatProviderBuilder {
+    ) -> OpenAICompatClientBuilder {
+        OpenAICompatClientBuilder {
             name: name.into(),
             base_url: base_url.into(),
             path: path.into(),
@@ -261,8 +261,8 @@ impl OpenAICompatProvider {
     }
 }
 
-/// Builder for [`OpenAICompatProvider`].
-pub struct OpenAICompatProviderBuilder {
+/// Builder for [`OpenAICompatClient`].
+pub struct OpenAICompatClientBuilder {
     name: String,
     base_url: String,
     path: String,
@@ -270,7 +270,7 @@ pub struct OpenAICompatProviderBuilder {
     client: Option<reqwest::Client>,
 }
 
-impl OpenAICompatProviderBuilder {
+impl OpenAICompatClientBuilder {
     /// Set the bearer API key. Leave unset for keyless local servers.
     pub fn api_key(mut self, api_key: impl Into<String>) -> Self {
         self.api_key = Some(api_key.into());
@@ -284,15 +284,15 @@ impl OpenAICompatProviderBuilder {
         self
     }
 
-    /// Build the [`OpenAICompatProvider`].
-    pub fn build(self) -> OpenAICompatProvider {
+    /// Build the [`OpenAICompatClient`].
+    pub fn build(self) -> OpenAICompatClient {
         let base = self.base_url.trim_end_matches('/');
         let url = if self.path.starts_with('/') {
             format!("{base}{}", self.path)
         } else {
             format!("{base}/{}", self.path)
         };
-        OpenAICompatProvider {
+        OpenAICompatClient {
             name: self.name,
             url,
             api_key: self.api_key,
@@ -311,7 +311,7 @@ pub(crate) fn default_client() -> reqwest::Client {
 }
 
 #[async_trait::async_trait]
-impl crate::LLMClient for OpenAICompatProvider {
+impl crate::LLMClient for OpenAICompatClient {
     fn name(&self) -> &str {
         &self.name
     }
@@ -322,7 +322,7 @@ impl crate::LLMClient for OpenAICompatProvider {
 }
 
 #[async_trait::async_trait]
-impl crate::LLMStreamingClient for OpenAICompatProvider {
+impl crate::LLMStreamingClient for OpenAICompatClient {
     async fn stream(&self, req: &LLMRequest, on_text: &mut crate::TextSink<'_>) -> Result<LLMResponse, LLMError> {
         openai_chat_completion_streaming(&self.client, &self.url, self.api_key.as_deref(), req, on_text).await
     }
