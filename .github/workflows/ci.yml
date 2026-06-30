@@ -28,4 +28,8 @@ jobs:
         run: cargo clippy --all-features --all-targets -- -D warnings
 
       - name: Test
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: cargo test --all-features
