@@ -143,7 +143,7 @@ impl ClaudeClientBuilder {
         ClaudeClient {
             api_key: self.api_key,
             base_url: self.base_url.unwrap_or_else(|| "https://api.anthropic.com".to_string()),
-            client: self.client.unwrap_or_default(),
+            client: self.client.unwrap_or_else(super::default_client),
         }
     }
 }
@@ -208,17 +208,20 @@ impl crate::LLMClient for ClaudeClient {
             .map_err(|e| LLMError::Provider(e.to_string()))?;
 
         let status = resp.status();
-        let json: Value = resp.json().await.map_err(|e| LLMError::Provider(e.to_string()))?;
+        let text = resp.text().await.map_err(|e| LLMError::Provider(e.to_string()))?;
 
         if !status.is_success() {
-            let msg = json
-                .get("error")
-                .and_then(|e| e.get("message"))
-                .and_then(Value::as_str)
-                .unwrap_or("unknown error");
-            return Err(LLMError::Provider(format!("HTTP {status}: {msg}")));
+            let msg = serde_json::from_str::<Value>(&text)
+                .ok()
+                .and_then(|j| j.get("error")?.get("message")?.as_str().map(str::to_string))
+                .unwrap_or(text);
+            return Err(LLMError::Http {
+                status: status.as_u16(),
+                message: msg,
+            });
         }
 
+        let json: Value = serde_json::from_str(&text).map_err(|e| LLMError::Provider(e.to_string()))?;
         Self::parse_response(&json)
     }
 }
@@ -244,7 +247,10 @@ impl crate::LLMStreamingClient for ClaudeClient {
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
-            return Err(LLMError::Provider(format!("HTTP {status}: {text}")));
+            return Err(LLMError::Http {
+                status: status.as_u16(),
+                message: text,
+            });
         }
 
         let mut acc = AnthropicStreamAcc::new();
@@ -361,7 +367,7 @@ impl AnthropicStreamAcc {
             .map(|b| ToolCall {
                 id: b.id,
                 name: b.name,
-                input: serde_json::from_str(&b.json).unwrap_or(Value::Null),
+                input: serde_json::from_str(if b.json.is_empty() { "{}" } else { &b.json }).unwrap_or(Value::Null),
             })
             .collect();
         LLMResponse {

@@ -16,8 +16,9 @@ pub trait LLMClient: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`LLMError::Provider`] if the request fails to send, the
-    /// provider returns a non-success status, or the response cannot be parsed.
+    /// Returns [`LLMError::Http`] for a non-success HTTP status (carrying the
+    /// status code), or [`LLMError::Provider`] if the request fails to send or
+    /// the response cannot be parsed.
     async fn generate(&self, req: &LLMRequest) -> Result<LLMResponse, LLMError>;
 
     /// A short, stable identifier for the underlying provider (e.g. `"claude"`).
@@ -28,8 +29,7 @@ pub trait LLMClient: Send + Sync {
 /// arrive.
 ///
 /// This is independent of [`LLMClient`]: a type may implement either, both, or
-/// neither. Providers that speak a real streaming protocol (SSE) implement it;
-/// non-streaming backends do not.
+/// neither. Every built-in provider implements it.
 #[async_trait::async_trait]
 pub trait LLMStreamingClient: Send + Sync {
     /// Stream a completion, calling `on_text` for each text fragment as it
@@ -37,7 +37,8 @@ pub trait LLMStreamingClient: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`LLMError::Provider`] if the request fails to send, the
-    /// provider returns a non-success status, or the stream cannot be parsed.
+    /// Returns [`LLMError::Http`] for a non-success HTTP status (carrying the
+    /// status code), or [`LLMError::Provider`] if the request fails to send or
+    /// the stream cannot be parsed.
     async fn stream(&self, req: &LLMRequest, on_text: &mut TextSink<'_>) -> Result<LLMResponse, LLMError>;
 }

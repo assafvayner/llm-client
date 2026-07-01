@@ -12,7 +12,7 @@ use crate::GeminiClient;
 #[cfg(feature = "hf")]
 use crate::HfClient;
 use crate::LLMClient;
-#[cfg(all(feature = "llama-cpp", unix))]
+#[cfg(any(all(feature = "llama-cpp", unix), feature = "ollama"))]
 use crate::LLMStreamingClient;
 #[cfg(feature = "llama-cpp")]
 use crate::LlamaCppClient;
@@ -263,6 +263,33 @@ fn openai_name() {
     assert_eq!(provider.name(), "openai");
 }
 
+#[cfg(feature = "openai")]
+#[test]
+fn openai_parse_tool_call_without_arguments() {
+    // A no-arg tool: the `arguments` field is absent. It must still parse.
+    let sample = json!({
+        "choices": [{
+            "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [{
+                    "id": "call_noargs",
+                    "type": "function",
+                    "function": { "name": "get_time" }
+                }]
+            },
+            "finish_reason": "tool_calls"
+        }]
+    });
+
+    let resp = OpenAIClient::parse_response(&sample).unwrap();
+
+    assert_eq!(resp.tool_calls.len(), 1, "no-arg tool call must not be dropped");
+    assert_eq!(resp.tool_calls[0].id, "call_noargs");
+    assert_eq!(resp.tool_calls[0].name, "get_time");
+    assert_eq!(resp.tool_calls[0].input, json!({}));
+}
+
 // ---------------------------------------------------------------------------
 // OllamaClient tests
 // ---------------------------------------------------------------------------
@@ -318,6 +345,56 @@ fn ollama_build_body_and_parse() {
 fn ollama_name() {
     let provider = OllamaClient::new(None);
     assert_eq!(provider.name(), "ollama");
+}
+
+#[cfg(feature = "ollama")]
+#[tokio::test]
+async fn ollama_streaming_ndjson() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut buf = [0u8; 4096];
+        let _ = stream.read(&mut buf).await.unwrap();
+        // Newline-delimited JSON, split awkwardly across the content boundary to
+        // exercise the line buffer.
+        let body = concat!(
+            "{\"message\":{\"role\":\"assistant\",\"content\":\"Hel\"},\"done\":false}\n",
+            "{\"message\":{\"role\":\"assistant\",\"content\":\"lo\"},\"done\":false}\n",
+            "{\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":3,\"eval_count\":2}\n",
+        );
+        let resp = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        stream.write_all(resp.as_bytes()).await.unwrap();
+        stream.shutdown().await.unwrap();
+    });
+
+    let client = OllamaClient::builder().base_url(format!("http://{addr}")).build();
+    let req = LLMRequest::builder("test-model")
+        .message(Message::User("hi".into()))
+        .max_tokens(64)
+        .build();
+
+    let mut acc = String::new();
+    let resp = {
+        let mut sink = |s: &str| acc.push_str(s);
+        client.stream(&req, &mut sink).await.unwrap()
+    };
+
+    assert_eq!(acc, "Hello");
+    assert_eq!(resp.text.as_deref(), Some("Hello"));
+    assert_eq!(resp.stop_reason, "stop");
+    assert_eq!(resp.usage.input_tokens, 3);
+    assert_eq!(resp.usage.output_tokens, 2);
+
+    server.await.unwrap();
 }
 
 // ---------------------------------------------------------------------------
@@ -452,7 +529,7 @@ async fn llama_cpp_uds_round_trip() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::UnixListener;
 
-    let path = std::env::temp_dir().join(format!("llm-client-llama-uds-{}.sock", std::process::id()));
+    let path = std::env::temp_dir().join(format!("llmc-uds-{}.sock", std::process::id()));
     let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path).unwrap();
 
@@ -491,11 +568,59 @@ async fn llama_cpp_uds_round_trip() {
 
 #[cfg(all(feature = "llama-cpp", unix))]
 #[tokio::test]
+async fn llama_cpp_uds_non_json_error_preserves_status() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixListener;
+
+    let path = std::env::temp_dir().join(format!("llmc-uds-err-{}.sock", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut buf = [0u8; 4096];
+        let _ = stream.read(&mut buf).await.unwrap();
+        // A non-JSON error body, e.g. from an upstream proxy.
+        let body = "<html><body>502 Bad Gateway</body></html>";
+        let resp = format!(
+            "HTTP/1.1 502 Bad Gateway\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        stream.write_all(resp.as_bytes()).await.unwrap();
+        stream.shutdown().await.unwrap();
+    });
+
+    let client = LlamaCppClient::unix_socket(&path).build();
+    let req = LLMRequest {
+        model: "test-model".to_string(),
+        system: "sys".to_string(),
+        messages: vec![Message::User("hi".to_string())],
+        tools: vec![],
+        max_tokens: 64,
+    };
+    let err = client.generate(&req).await.unwrap_err();
+
+    // Non-JSON error body: status survives as a code, raw body becomes the message.
+    match err {
+        crate::LLMError::Http { status, message } => {
+            assert_eq!(status, 502, "structured HTTP status must be preserved");
+            assert!(message.contains("Bad Gateway"), "error should include the raw body: {message}");
+        },
+        other => panic!("expected LLMError::Http, got {other:?}"),
+    }
+
+    server.await.unwrap();
+    let _ = std::fs::remove_file(&path);
+}
+
+#[cfg(all(feature = "llama-cpp", unix))]
+#[tokio::test]
 async fn llama_cpp_uds_streaming() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::UnixListener;
 
-    let path = std::env::temp_dir().join(format!("llm-client-llama-uds-stream-{}.sock", std::process::id()));
+    let path = std::env::temp_dir().join(format!("llmc-uds-strm-{}.sock", std::process::id()));
     let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path).unwrap();
 

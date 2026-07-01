@@ -45,3 +45,17 @@ pub use ollama::{OllamaClient, OllamaClientBuilder};
 pub use openai::{OpenAIClient, OpenAIClientBuilder};
 #[cfg(feature = "openai-compat")]
 pub use openai_compat::{OpenAICompatClient, OpenAICompatClientBuilder};
+
+/// Default HTTP client used when the caller supplies none via `.client(...)`.
+///
+/// Sets a user agent and a connect timeout so a dead host fails fast. No overall
+/// timeout is imposed, since long or streamed completions are legitimate —
+/// callers wanting a hard deadline should pass their own [`reqwest::Client`].
+#[cfg(any(feature = "claude", feature = "openai-compat", feature = "ollama"))]
+pub(crate) fn default_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .user_agent(concat!("llm-client/", env!("CARGO_PKG_VERSION")))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .expect("failed to build reqwest client")
+}

@@ -22,13 +22,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => LlamaCppClient::local().build(),
     };
 
-    let req = LLMRequest {
-        model: "llama".into(), // llama.cpp serves whatever model is loaded
-        system: "You are a terse assistant.".into(),
-        messages: vec![Message::User("Name three primary colors.".into())],
-        tools: vec![],
-        max_tokens: 256,
-    };
+    // llama.cpp serves whatever model is loaded.
+    let req = LLMRequest::builder("llama")
+        .system("You are a terse assistant.")
+        .message(Message::User("Name three primary colors.".into()))
+        .max_tokens(256)
+        .build();
 
     let resp = client.generate(&req).await?;
 

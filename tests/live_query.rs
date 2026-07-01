@@ -26,13 +26,11 @@ fn key_or_skip(var: &str) -> Option<String> {
 
 /// A minimal one-turn request that should elicit a short text reply.
 fn basic_request(model: &str) -> LLMRequest {
-    LLMRequest {
-        model: model.to_string(),
-        system: "You are a terse assistant.".to_string(),
-        messages: vec![Message::User("Reply with the single word: pong".to_string())],
-        tools: vec![],
-        max_tokens: 32,
-    }
+    LLMRequest::builder(model)
+        .system("You are a terse assistant.")
+        .message(Message::User("Reply with the single word: pong".to_string()))
+        .max_tokens(32)
+        .build()
 }
 
 /// Run the request and assert the provider returned non-empty text.

@@ -8,7 +8,7 @@ OpenAI-compatible chat completions servers.
 ## Features
 
 - One `LLMClient` trait for non-streaming chat completions.
-- Optional `LLMStreamingClient` support for providers that expose streaming.
+- `LLMStreamingClient` streaming, implemented by every built-in provider.
 - Shared request, response, message, usage, and tool-call types.
 - Feature-gated provider implementations so downstream crates can compile only
   the backends they need.
@@ -36,7 +36,7 @@ llm-client = {
 }
 ```
 
-This crate uses Rust 1.95+ and edition 2024.
+This crate uses Rust 1.88+ and edition 2024.
 
 ## Quick Start
 
@@ -47,13 +47,11 @@ use llm_client::{LLMClient, LLMRequest, Message, OpenAIClient};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let provider = OpenAIClient::from_env()?;
 
-    let req = LLMRequest {
-        model: "gpt-4o".into(),
-        system: "You are concise.".into(),
-        messages: vec![Message::User("Explain Rust ownership in one sentence.".into())],
-        tools: vec![],
-        max_tokens: 128,
-    };
+    let req = LLMRequest::builder("gpt-4o")
+        .system("You are concise.")
+        .message(Message::User("Explain Rust ownership in one sentence.".into()))
+        .max_tokens(128)
+        .build();
 
     let resp = provider.generate(&req).await?;
     println!("{}", resp.text.unwrap_or_default());
@@ -116,21 +114,19 @@ See `examples/tool_use.rs` for a complete flow.
 
 ## Streaming
 
-Providers that implement streaming expose `LLMStreamingClient::stream`. The
-method calls a text sink for each fragment and returns the fully assembled
+Every built-in provider implements `LLMStreamingClient::stream`. The method
+calls a text sink for each fragment and returns the fully assembled
 `LLMResponse` when the stream completes.
 
 ```rust,ignore
 use llm_client::{ClaudeClient, LLMRequest, LLMStreamingClient, Message};
 
 let provider = ClaudeClient::from_env()?;
-let req = LLMRequest {
-    model: "claude-sonnet-4-6".into(),
-    system: "You are helpful.".into(),
-    messages: vec![Message::User("Write a haiku about Rust.".into())],
-    tools: vec![],
-    max_tokens: 256,
-};
+let req = LLMRequest::builder("claude-sonnet-4-6")
+    .system("You are helpful.")
+    .message(Message::User("Write a haiku about Rust.".into()))
+    .max_tokens(256)
+    .build();
 
 let mut sink = |fragment: &str| print!("{fragment}");
 let response = provider.stream(&req, &mut sink).await?;

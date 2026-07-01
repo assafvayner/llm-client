@@ -23,13 +23,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .client(http) // override the default reqwest client
         .build(); // no `.api_key(..)` -> keyless server
 
-    let req = LLMRequest {
-        model: "Qwen/Qwen2.5-7B-Instruct".into(),
-        system: "You are concise.".into(),
-        messages: vec![Message::User("Say hi in one word.".into())],
-        tools: vec![],
-        max_tokens: 64,
-    };
+    let req = LLMRequest::builder("Qwen/Qwen2.5-7B-Instruct")
+        .system("You are concise.")
+        .message(Message::User("Say hi in one word.".into()))
+        .max_tokens(64)
+        .build();
 
     let resp = provider.generate(&req).await?;
     println!("[{}] {}", provider.name(), resp.text.unwrap_or_default());

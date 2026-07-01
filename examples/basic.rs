@@ -11,13 +11,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `from_env` reads HF_TOKEN; equivalent to `HfClient::builder(token).build()`.
     let provider = HfClient::from_env()?;
 
-    let req = LLMRequest {
-        model: "meta-llama/Llama-3.3-70B-Instruct".into(),
-        system: "You are a terse assistant.".into(),
-        messages: vec![Message::User("Name three primary colors.".into())],
-        tools: vec![],
-        max_tokens: 256,
-    };
+    let req = LLMRequest::builder("meta-llama/Llama-3.3-70B-Instruct")
+        .system("You are a terse assistant.")
+        .message(Message::User("Name three primary colors.".into()))
+        .max_tokens(256)
+        .build();
 
     let resp = provider.generate(&req).await?;
 

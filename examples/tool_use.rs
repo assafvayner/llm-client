@@ -21,13 +21,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut messages = vec![Message::User("What's the weather in Paris?".into())];
 
-    let req = LLMRequest {
-        model: "gpt-4o".into(),
-        system: "Use tools when needed.".into(),
-        messages: messages.clone(),
-        tools: vec![weather],
-        max_tokens: 512,
-    };
+    let req = LLMRequest::builder("gpt-4o")
+        .system("Use tools when needed.")
+        .messages(messages.clone())
+        .tool(weather)
+        .max_tokens(512)
+        .build();
     let resp = provider.generate(&req).await?;
 
     // No tools wanted — we already have the answer.
@@ -53,7 +52,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Continue the conversation with the tool results appended.
-    let followup = LLMRequest { messages, ..req };
+    let mut followup = req.clone();
+    followup.messages = messages;
     let final_resp = provider.generate(&followup).await?;
     println!("{}", final_resp.text.unwrap_or_default());
     Ok(())

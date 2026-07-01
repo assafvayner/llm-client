@@ -42,4 +42,4 @@ pub use providers::{OpenAIClient, OpenAIClientBuilder};
 #[cfg(feature = "openai-compat")]
 #[cfg_attr(docsrs, doc(cfg(feature = "openai-compat")))]
 pub use providers::{OpenAICompatClient, OpenAICompatClientBuilder};
-pub use types::{LLMRequest, LLMResponse, Message, ToolCall, ToolDef, Usage};
+pub use types::{LLMRequest, LLMRequestBuilder, LLMResponse, Message, ToolCall, ToolDef, Usage};

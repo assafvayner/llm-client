@@ -1,3 +1,4 @@
+use futures_util::StreamExt;
 use serde_json::{Value, json};
 
 use crate::{LLMError, LLMRequest, LLMResponse, Message, ToolCall, Usage};
@@ -127,7 +128,7 @@ impl OllamaClientBuilder {
     pub fn build(self) -> OllamaClient {
         OllamaClient {
             base_url: self.base_url.unwrap_or_else(|| "http://localhost:11434".to_string()),
-            client: self.client.unwrap_or_default(),
+            client: self.client.unwrap_or_else(super::default_client),
         }
     }
 }
@@ -183,13 +184,121 @@ impl crate::LLMClient for OllamaClient {
             .map_err(|e| LLMError::Provider(e.to_string()))?;
 
         let status = resp.status();
-        let json: Value = resp.json().await.map_err(|e| LLMError::Provider(e.to_string()))?;
+        let text = resp.text().await.map_err(|e| LLMError::Provider(e.to_string()))?;
 
         if !status.is_success() {
-            let msg = json.get("error").and_then(Value::as_str).unwrap_or("unknown error");
-            return Err(LLMError::Provider(format!("HTTP {status}: {msg}")));
+            let msg = serde_json::from_str::<Value>(&text)
+                .ok()
+                .and_then(|j| j.get("error")?.as_str().map(str::to_string))
+                .unwrap_or(text);
+            return Err(LLMError::Http {
+                status: status.as_u16(),
+                message: msg,
+            });
         }
 
+        let json: Value = serde_json::from_str(&text).map_err(|e| LLMError::Provider(e.to_string()))?;
         Self::parse_response(&json)
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::LLMStreamingClient for OllamaClient {
+    async fn stream(&self, req: &LLMRequest, on_text: &mut crate::TextSink<'_>) -> Result<LLMResponse, LLMError> {
+        let url = format!("{}/api/chat", self.base_url);
+        let mut body = self.build_body(req);
+        body["stream"] = Value::Bool(true);
+
+        let resp = self
+            .client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| LLMError::Provider(e.to_string()))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(LLMError::Http {
+                status: status.as_u16(),
+                message: text,
+            });
+        }
+
+        // Ollama streams newline-delimited JSON, not SSE.
+        let mut acc = OllamaStreamAcc::default();
+        let mut buf: Vec<u8> = Vec::new();
+        let mut stream = resp.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|e| LLMError::Provider(e.to_string()))?;
+            buf.extend_from_slice(&chunk);
+            while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
+                let line: Vec<u8> = buf.drain(..pos + 1).collect();
+                acc.handle(&line, on_text);
+            }
+        }
+        if !buf.is_empty() {
+            acc.handle(&buf, on_text);
+        }
+        Ok(acc.finish())
+    }
+}
+
+/// Assembles an Ollama streaming response from newline-delimited JSON objects.
+#[derive(Default)]
+struct OllamaStreamAcc {
+    text: String,
+    stop_reason: String,
+    usage: Usage,
+    tool_calls: Vec<ToolCall>,
+}
+
+impl OllamaStreamAcc {
+    /// Handle one NDJSON line. Blank/unparseable lines are ignored; text deltas
+    /// are forwarded to `on_text`.
+    fn handle(&mut self, line: &[u8], on_text: &mut dyn FnMut(&str)) {
+        let Ok(s) = std::str::from_utf8(line) else {
+            return;
+        };
+        let s = s.trim();
+        if s.is_empty() {
+            return;
+        }
+        let Ok(v) = serde_json::from_str::<Value>(s) else {
+            return;
+        };
+        if let Some(msg) = v.get("message") {
+            if let Some(c) = msg.get("content").and_then(Value::as_str)
+                && !c.is_empty()
+            {
+                self.text.push_str(c);
+                on_text(c);
+            }
+            if let Some(calls) = msg.get("tool_calls").and_then(Value::as_array) {
+                for tc in calls {
+                    if let Some(func) = tc.get("function") {
+                        let name = func.get("name").and_then(Value::as_str).unwrap_or("").to_string();
+                        let input = func.get("arguments").cloned().unwrap_or(Value::Null);
+                        let id = format!("call_{}", self.tool_calls.len());
+                        self.tool_calls.push(ToolCall { id, name, input });
+                    }
+                }
+            }
+        }
+        if v.get("done").and_then(Value::as_bool) == Some(true) {
+            self.stop_reason = v.get("done_reason").and_then(Value::as_str).unwrap_or("stop").to_string();
+            self.usage.input_tokens = v.get("prompt_eval_count").and_then(Value::as_u64).unwrap_or(0);
+            self.usage.output_tokens = v.get("eval_count").and_then(Value::as_u64).unwrap_or(0);
+        }
+    }
+
+    fn finish(self) -> LLMResponse {
+        LLMResponse {
+            text: if self.text.is_empty() { None } else { Some(self.text) },
+            tool_calls: self.tool_calls,
+            usage: self.usage,
+            stop_reason: self.stop_reason,
+        }
     }
 }

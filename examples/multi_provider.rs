@@ -13,13 +13,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let which = std::env::args().nth(1).unwrap_or_else(|| "ollama".into());
     let (client, model) = provider_for(&which)?;
 
-    let req = LLMRequest {
-        model: model.into(),
-        system: "You are helpful.".into(),
-        messages: vec![Message::User("In one sentence, what is Rust?".into())],
-        tools: vec![],
-        max_tokens: 128,
-    };
+    let req = LLMRequest::builder(model)
+        .system("You are helpful.")
+        .message(Message::User("In one sentence, what is Rust?".into()))
+        .max_tokens(128)
+        .build();
 
     let resp = client.generate(&req).await?;
     println!("[{}] {}", client.name(), resp.text.unwrap_or_default());

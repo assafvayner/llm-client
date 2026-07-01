@@ -1,15 +1,18 @@
 /// Errors produced by the LLM layer.
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum LLMError {
-    /// The provider rejected the request or returned an error response —
-    /// covers HTTP/transport failures, non-success status codes, unparseable
-    /// payloads, and missing configuration (e.g. an unset API-key env var).
+    /// A non-success HTTP status, so callers can match on `status` (retry
+    /// `429`/`5xx`, surface auth failures on `401`/`403`, etc.).
+    #[error("HTTP {status}: {message}")]
+    Http {
+        /// The HTTP status code returned by the provider.
+        status: u16,
+        /// The provider's error message, or the raw body if unstructured.
+        message: String,
+    },
+    /// A transport, serialization, or configuration failure (connection error,
+    /// unparseable payload, unset API-key env var).
     #[error("provider error: {0}")]
     Provider(String),
-    /// A tool invocation failed while handling the model's request.
-    #[error("tool error: {0}")]
-    Tool(String),
-    /// The request was malformed or invalid before it could be sent.
-    #[error("request error: {0}")]
-    Request(String),
 }

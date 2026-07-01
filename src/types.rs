@@ -13,6 +13,7 @@ pub struct ToolCall {
 
 /// A message in the conversation.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum Message {
     /// A user turn carrying plain text.
     User(String),
@@ -48,7 +49,7 @@ pub struct ToolDef {
 }
 
 /// Token usage for one provider round-trip.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Usage {
     /// Number of prompt (input) tokens billed for the request.
     pub input_tokens: u64,
@@ -65,7 +66,8 @@ impl Usage {
 }
 
 /// The full request sent to a provider.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub struct LLMRequest {
     /// Provider-specific model identifier (e.g. `"gpt-4o"`, `"claude-sonnet-4-6"`).
     pub model: String,
@@ -79,8 +81,83 @@ pub struct LLMRequest {
     pub max_tokens: u32,
 }
 
+impl LLMRequest {
+    /// Start building a request for the given model. The default `system` prompt
+    /// is empty, `messages` and `tools` are empty, and `max_tokens` defaults to
+    /// `1024`.
+    pub fn builder(model: impl Into<String>) -> LLMRequestBuilder {
+        LLMRequestBuilder {
+            model: model.into(),
+            system: String::new(),
+            messages: vec![],
+            tools: vec![],
+            max_tokens: 1024,
+        }
+    }
+}
+
+/// Builder for [`LLMRequest`].
+pub struct LLMRequestBuilder {
+    model: String,
+    system: String,
+    messages: Vec<Message>,
+    tools: Vec<ToolDef>,
+    max_tokens: u32,
+}
+
+impl LLMRequestBuilder {
+    /// Set the system prompt.
+    pub fn system(mut self, system: impl Into<String>) -> Self {
+        self.system = system.into();
+        self
+    }
+
+    /// Append one message to the conversation history.
+    pub fn message(mut self, message: Message) -> Self {
+        self.messages.push(message);
+        self
+    }
+
+    /// Append messages to the conversation history.
+    pub fn messages(mut self, messages: impl IntoIterator<Item = Message>) -> Self {
+        self.messages.extend(messages);
+        self
+    }
+
+    /// Append one tool the model is allowed to call.
+    pub fn tool(mut self, tool: ToolDef) -> Self {
+        self.tools.push(tool);
+        self
+    }
+
+    /// Append tools the model is allowed to call.
+    pub fn tools(mut self, tools: impl IntoIterator<Item = ToolDef>) -> Self {
+        self.tools.extend(tools);
+        self
+    }
+
+    /// Set the upper bound on tokens the model may generate. Defaults to
+    /// `1024` when not set.
+    pub fn max_tokens(mut self, max_tokens: u32) -> Self {
+        self.max_tokens = max_tokens;
+        self
+    }
+
+    /// Build the [`LLMRequest`].
+    pub fn build(self) -> LLMRequest {
+        LLMRequest {
+            model: self.model,
+            system: self.system,
+            messages: self.messages,
+            tools: self.tools,
+            max_tokens: self.max_tokens,
+        }
+    }
+}
+
 /// The provider's response.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub struct LLMResponse {
     /// The model's text output, if any. `None` when the turn produced only
     /// tool calls.
@@ -91,4 +168,55 @@ pub struct LLMResponse {
     pub usage: Usage,
     /// Why generation stopped, e.g. `"end_turn"`, `"tool_use"`, `"max_tokens"`.
     pub stop_reason: String,
+}
+
+impl LLMResponse {
+    /// Construct a response from its fields.
+    pub fn new(text: Option<String>, tool_calls: Vec<ToolCall>, usage: Usage, stop_reason: impl Into<String>) -> Self {
+        Self {
+            text,
+            tool_calls,
+            usage,
+            stop_reason: stop_reason.into(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn request_and_response_round_trip_through_serde() {
+        let req = LLMRequest::builder("test-model")
+            .system("sys")
+            .message(Message::User("hi".into()))
+            .tool(ToolDef {
+                name: "run_query".into(),
+                description: "Run a query".into(),
+                input_schema: json!({ "type": "object" }),
+            })
+            .max_tokens(64)
+            .build();
+        let req2: LLMRequest = serde_json::from_str(&serde_json::to_string(&req).unwrap()).unwrap();
+        assert_eq!(req, req2);
+
+        let resp = LLMResponse::new(
+            Some("answer".into()),
+            vec![ToolCall {
+                id: "c1".into(),
+                name: "run_query".into(),
+                input: json!({ "sql": "SELECT 1" }),
+            }],
+            Usage {
+                input_tokens: 10,
+                output_tokens: 5,
+            },
+            "tool_use",
+        );
+        let resp2: LLMResponse = serde_json::from_str(&serde_json::to_string(&resp).unwrap()).unwrap();
+        assert_eq!(resp, resp2);
+    }
 }

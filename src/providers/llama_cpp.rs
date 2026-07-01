@@ -115,6 +115,7 @@ impl LlamaCppUdsBuilder {
     pub fn build(self) -> LlamaCppClient {
         let client = reqwest::Client::builder()
             .user_agent(concat!("llm-client/", env!("CARGO_PKG_VERSION")))
+            .connect_timeout(std::time::Duration::from_secs(10))
             .unix_socket(self.socket_path)
             .build()
             .expect("failed to build unix-socket reqwest client");

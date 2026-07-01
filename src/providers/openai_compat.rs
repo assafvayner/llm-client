@@ -72,7 +72,7 @@ pub(crate) fn openai_parse_response(json: &Value) -> Result<LLMResponse, LLMErro
                     let id = tc.get("id")?.as_str()?.to_string();
                     let func = tc.get("function")?;
                     let name = func.get("name")?.as_str()?.to_string();
-                    let arguments_str = func.get("arguments")?.as_str().unwrap_or("{}");
+                    let arguments_str = func.get("arguments").and_then(Value::as_str).unwrap_or("{}");
                     let input: Value = serde_json::from_str(arguments_str)
                         .unwrap_or_else(|_| Value::String(arguments_str.to_string()));
                     Some(ToolCall { id, name, input })
@@ -118,17 +118,20 @@ pub(crate) async fn openai_chat_completion(
     let resp = request.send().await.map_err(|e| LLMError::Provider(e.to_string()))?;
 
     let status = resp.status();
-    let json: Value = resp.json().await.map_err(|e| LLMError::Provider(e.to_string()))?;
+    let text = resp.text().await.map_err(|e| LLMError::Provider(e.to_string()))?;
 
     if !status.is_success() {
-        let msg = json
-            .get("error")
-            .and_then(|e| e.get("message"))
-            .and_then(Value::as_str)
-            .unwrap_or("unknown error");
-        return Err(LLMError::Provider(format!("HTTP {status}: {msg}")));
+        let msg = serde_json::from_str::<Value>(&text)
+            .ok()
+            .and_then(|j| j.get("error")?.get("message")?.as_str().map(str::to_string))
+            .unwrap_or(text);
+        return Err(LLMError::Http {
+            status: status.as_u16(),
+            message: msg,
+        });
     }
 
+    let json: Value = serde_json::from_str(&text).map_err(|e| LLMError::Provider(e.to_string()))?;
     openai_parse_response(&json)
 }
 
@@ -154,7 +157,10 @@ pub(crate) async fn openai_chat_completion_streaming(
     if !resp.status().is_success() {
         let status = resp.status();
         let text = resp.text().await.unwrap_or_default();
-        return Err(LLMError::Provider(format!("HTTP {status}: {text}")));
+        return Err(LLMError::Http {
+            status: status.as_u16(),
+            message: text,
+        });
     }
 
     let mut acc = OpenAiStreamAcc::new();
@@ -296,7 +302,7 @@ impl OpenAICompatClientBuilder {
             name: self.name,
             url,
             api_key: self.api_key,
-            client: self.client.unwrap_or_else(default_client),
+            client: self.client.unwrap_or_else(super::default_client),
         }
     }
 }
@@ -307,15 +313,6 @@ impl OpenAICompatClient {
     pub(crate) fn endpoint(&self) -> &str {
         &self.url
     }
-}
-
-/// The default HTTP client used by OpenAI-compatible providers when the caller
-/// does not supply one.
-pub(crate) fn default_client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .user_agent(concat!("llm-client/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .expect("failed to build reqwest client")
 }
 
 #[async_trait::async_trait]
@@ -418,7 +415,7 @@ impl OpenAiStreamAcc {
             .map(|f| ToolCall {
                 id: f.id,
                 name: f.name,
-                input: serde_json::from_str(&f.args).unwrap_or(Value::Null),
+                input: serde_json::from_str(if f.args.is_empty() { "{}" } else { &f.args }).unwrap_or(Value::Null),
             })
             .collect();
         LLMResponse {
@@ -471,5 +468,20 @@ mod tests {
         assert_eq!(resp.tool_calls[0].id, "c1");
         assert_eq!(resp.tool_calls[0].name, "run_query");
         assert_eq!(resp.tool_calls[0].input, serde_json::json!({ "sql": "SELECT 1" }));
+    }
+
+    #[test]
+    fn openai_stream_no_arg_tool_call_defaults_to_empty_object() {
+        use serde_json::json;
+        let mut acc = OpenAiStreamAcc::new();
+        // A tool call streamed with a name/id but no argument fragments.
+        acc.handle(
+            &json!({"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"get_time"}}]}}]})
+                .to_string(),
+            &mut |_| {},
+        );
+        let resp = acc.finish();
+        assert_eq!(resp.tool_calls.len(), 1);
+        assert_eq!(resp.tool_calls[0].input, json!({}), "empty args must default to {{}}, not null");
     }
 }

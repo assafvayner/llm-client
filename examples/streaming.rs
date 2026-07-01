@@ -10,13 +10,11 @@ use llm_client::{ClaudeClient, LLMRequest, LLMStreamingClient, Message};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let provider = ClaudeClient::from_env()?;
 
-    let req = LLMRequest {
-        model: "claude-sonnet-4-6".into(),
-        system: "You are a helpful assistant.".into(),
-        messages: vec![Message::User("Write a haiku about Rust.".into())],
-        tools: vec![],
-        max_tokens: 256,
-    };
+    let req = LLMRequest::builder("claude-sonnet-4-6")
+        .system("You are a helpful assistant.")
+        .message(Message::User("Write a haiku about Rust.".into()))
+        .max_tokens(256)
+        .build();
 
     // The sink is called for each text fragment as it streams in.
     let mut sink = |fragment: &str| {
