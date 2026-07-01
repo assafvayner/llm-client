@@ -1,11 +1,18 @@
+#[cfg(test)]
 use serde_json::Value;
 
-use super::openai_compat::{OpenAICompatClient, openai_build_body, openai_parse_response};
+use super::openai_compat::OpenAICompatClient;
+#[cfg(test)]
+use super::openai_compat::{openai_build_body, openai_parse_response};
 use crate::{LLMClient, LLMError, LLMRequest, LLMResponse, LLMStreamingClient};
 
+/// Client for the OpenAI chat-completions API.
 pub struct OpenAIClient(OpenAICompatClient);
 
 impl OpenAIClient {
+    /// Create a client with the given API key and an optional base URL override
+    /// (defaults to `https://api.openai.com`). For more options use
+    /// [`OpenAIClient::builder`].
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         let mut builder = Self::builder(api_key);
         builder.base_url = base_url;
@@ -22,17 +29,25 @@ impl OpenAIClient {
         }
     }
 
+    /// Build a client reading the API key from the `OPENAI_API_KEY` environment
+    /// variable.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LLMError::Provider`] if `OPENAI_API_KEY` is not set.
     pub fn from_env() -> Result<Self, LLMError> {
         let key =
             std::env::var("OPENAI_API_KEY").map_err(|_| LLMError::Provider("OPENAI_API_KEY not set".to_string()))?;
         Ok(Self::new(key, None))
     }
 
-    pub fn build_body(&self, req: &LLMRequest) -> Value {
+    #[cfg(test)]
+    pub(crate) fn build_body(&self, req: &LLMRequest) -> Value {
         openai_build_body(req)
     }
 
-    pub fn parse_response(json: &Value) -> Result<LLMResponse, LLMError> {
+    #[cfg(test)]
+    pub(crate) fn parse_response(json: &Value) -> Result<LLMResponse, LLMError> {
         openai_parse_response(json)
     }
 }

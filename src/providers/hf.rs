@@ -6,6 +6,9 @@ use crate::{LLMClient, LLMError, LLMRequest, LLMResponse, LLMStreamingClient};
 pub struct HfClient(OpenAICompatClient);
 
 impl HfClient {
+    /// Create a client with the given token and an optional base URL override
+    /// (defaults to `https://router.huggingface.co`). For more options use
+    /// [`HfClient::builder`].
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         let mut builder = Self::builder(api_key);
         builder.base_url = base_url;
@@ -22,6 +25,12 @@ impl HfClient {
         }
     }
 
+    /// Build a client reading the token from the `HF_TOKEN` environment
+    /// variable.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LLMError::Provider`] if `HF_TOKEN` is not set.
     pub fn from_env() -> Result<Self, LLMError> {
         let key = std::env::var("HF_TOKEN").map_err(|_| LLMError::Provider("HF_TOKEN not set".to_string()))?;
         Ok(Self::new(key, None))

@@ -2,12 +2,15 @@ use serde_json::{Value, json};
 
 use crate::{LLMError, LLMRequest, LLMResponse, Message, ToolCall, Usage};
 
+/// Client for a local [Ollama](https://ollama.com) server's chat API.
 pub struct OllamaClient {
     base_url: String,
     client: reqwest::Client,
 }
 
 impl OllamaClient {
+    /// Create a client with an optional base URL override (defaults to
+    /// `http://localhost:11434`). For more options use [`OllamaClient::builder`].
     pub fn new(base_url: Option<String>) -> Self {
         let mut builder = Self::builder();
         builder.base_url = base_url;
@@ -23,7 +26,7 @@ impl OllamaClient {
         }
     }
 
-    pub fn build_body(&self, req: &LLMRequest) -> Value {
+    pub(crate) fn build_body(&self, req: &LLMRequest) -> Value {
         let mut messages: Vec<Value> = Vec::new();
         messages.push(json!({ "role": "system", "content": req.system }));
         for msg in &req.messages {
@@ -57,7 +60,7 @@ impl OllamaClient {
         body
     }
 
-    pub fn parse_response(json: &Value) -> Result<LLMResponse, LLMError> {
+    pub(crate) fn parse_response(json: &Value) -> Result<LLMResponse, LLMError> {
         let message = json
             .get("message")
             .ok_or_else(|| LLMError::Provider("missing message".to_string()))?;

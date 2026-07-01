@@ -10,6 +10,10 @@ description = "A provider-agnostic LLM client abstraction with implementations f
 keywords = ["llm", "ai", "openai", "anthropic", "client"]
 categories = ["api-bindings"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [features]
 default = ["claude", "openai", "gemini", "ollama", "hf", "llama-cpp", "openai-compat"]
 claude = []

@@ -12,7 +12,15 @@ pub type TextSink<'a> = dyn FnMut(&str) + Send + 'a;
 /// only requires `Send + Sync`.
 #[async_trait::async_trait]
 pub trait LLMClient: Send + Sync {
+    /// Generate a response for `req` in a single round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LLMError::Provider`] if the request fails to send, the
+    /// provider returns a non-success status, or the response cannot be parsed.
     async fn generate(&self, req: &LLMRequest) -> Result<LLMResponse, LLMError>;
+
+    /// A short, stable identifier for the underlying provider (e.g. `"claude"`).
     fn name(&self) -> &str;
 }
 
@@ -26,5 +34,10 @@ pub trait LLMClient: Send + Sync {
 pub trait LLMStreamingClient: Send + Sync {
     /// Stream a completion, calling `on_text` for each text fragment as it
     /// arrives, and returning the fully assembled response (incl. tool calls).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LLMError::Provider`] if the request fails to send, the
+    /// provider returns a non-success status, or the stream cannot be parsed.
     async fn stream(&self, req: &LLMRequest, on_text: &mut TextSink<'_>) -> Result<LLMResponse, LLMError>;
 }

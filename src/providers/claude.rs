@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 
 use crate::{LLMError, LLMRequest, LLMResponse, Message, ToolCall, Usage};
 
+/// Client for Anthropic's Claude Messages API.
 pub struct ClaudeClient {
     api_key: String,
     base_url: String,
@@ -10,6 +11,9 @@ pub struct ClaudeClient {
 }
 
 impl ClaudeClient {
+    /// Create a client with the given API key and an optional base URL override
+    /// (defaults to `https://api.anthropic.com`). For more options use
+    /// [`ClaudeClient::builder`].
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         let mut builder = Self::builder(api_key);
         builder.base_url = base_url;
@@ -26,13 +30,19 @@ impl ClaudeClient {
         }
     }
 
+    /// Build a client reading the API key from the `ANTHROPIC_API_KEY`
+    /// environment variable.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LLMError::Provider`] if `ANTHROPIC_API_KEY` is not set.
     pub fn from_env() -> Result<Self, LLMError> {
         let key = std::env::var("ANTHROPIC_API_KEY")
             .map_err(|_| LLMError::Provider("ANTHROPIC_API_KEY not set".to_string()))?;
         Ok(Self::new(key, None))
     }
 
-    pub fn build_body(&self, req: &LLMRequest) -> Value {
+    pub(crate) fn build_body(&self, req: &LLMRequest) -> Value {
         let messages: Vec<Value> = req.messages.iter().map(map_message).collect();
 
         let tools: Vec<Value> = req
@@ -56,7 +66,7 @@ impl ClaudeClient {
         })
     }
 
-    pub fn parse_response(json: &Value) -> Result<LLMResponse, LLMError> {
+    pub(crate) fn parse_response(json: &Value) -> Result<LLMResponse, LLMError> {
         let content = json
             .get("content")
             .and_then(Value::as_array)

@@ -10,6 +10,9 @@ use crate::{LLMClient, LLMError, LLMRequest, LLMResponse, LLMStreamingClient};
 pub struct GeminiClient(OpenAICompatClient);
 
 impl GeminiClient {
+    /// Create a client with the given API key and an optional base URL override
+    /// (defaults to `https://generativelanguage.googleapis.com/v1beta/openai`).
+    /// For more options use [`GeminiClient::builder`].
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         let mut builder = Self::builder(api_key);
         builder.base_url = base_url;

@@ -38,13 +38,15 @@ impl LLMStreamingClient for PendingClient {
 /// provider is called again, it returns an error.
 ///
 /// Use `last_request_message_count()` to inspect what the agent sent on the
-/// most recent call — useful for testing conversation-memory behaviour.
+/// most recent call — useful for testing conversation-memory behavior.
 pub struct MockClient {
     responses: Mutex<VecDeque<LLMResponse>>,
     last_message_count: Mutex<usize>,
 }
 
 impl MockClient {
+    /// Create a client that returns `responses` in FIFO order, one per
+    /// [`generate`](LLMClient::generate) call.
     pub fn new(responses: impl IntoIterator<Item = LLMResponse>) -> Self {
         Self {
             responses: Mutex::new(responses.into_iter().collect()),
@@ -84,6 +86,9 @@ pub struct ScriptedStreamClient {
 }
 
 impl ScriptedStreamClient {
+    /// Create a client where each round-trip streams the next group of text
+    /// fragments. Outer items are rounds; inner items are the fragments emitted
+    /// in order for that round.
     pub fn new<I, J, S>(rounds: I) -> Self
     where
         I: IntoIterator<Item = J>,

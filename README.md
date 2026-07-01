@@ -40,7 +40,7 @@ This crate uses Rust 1.95+ and edition 2024.
 
 ## Quick Start
 
-```rust
+```rust,no_run
 use llm_client::{LLMClient, LLMRequest, Message, OpenAIClient};
 
 #[tokio::main]
@@ -120,7 +120,7 @@ Providers that implement streaming expose `LLMStreamingClient::stream`. The
 method calls a text sink for each fragment and returns the fully assembled
 `LLMResponse` when the stream completes.
 
-```rust
+```rust,ignore
 use llm_client::{ClaudeClient, LLMRequest, LLMStreamingClient, Message};
 
 let provider = ClaudeClient::from_env()?;
@@ -141,7 +141,7 @@ let response = provider.stream(&req, &mut sink).await?;
 Use `OpenAICompatClient` for services that expose an OpenAI-style
 `/chat/completions` endpoint:
 
-```rust
+```rust,ignore
 use llm_client::OpenAICompatClient;
 
 let provider = OpenAICompatClient::builder(
