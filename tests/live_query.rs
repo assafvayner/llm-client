@@ -7,7 +7,7 @@
 //!
 //! Env vars: `HF_TOKEN`, `GEMINI_API_KEY`.
 
-use llm_client::{LLMClient, LLMRequest, Message};
+use llmeh::{LLMClient, LLMRequest, Message};
 
 /// Fetch a required API key. Returns `Some(key)` when set. When unset, panics in
 /// CI (so the build fails) and returns `None` (test skips) otherwise.
@@ -53,7 +53,7 @@ async fn hf_basic_query() {
     let Some(key) = key_or_skip("HF_TOKEN") else {
         return;
     };
-    let client = llm_client::HfClient::builder(key).build();
+    let client = llmeh::HfClient::builder(key).build();
     assert_basic_query(&client, "meta-llama/Llama-3.3-70B-Instruct").await;
 }
 
@@ -63,6 +63,6 @@ async fn gemini_basic_query() {
     let Some(key) = key_or_skip("GEMINI_API_KEY") else {
         return;
     };
-    let client = llm_client::GeminiClient::builder(key).build();
+    let client = llmeh::GeminiClient::builder(key).build();
     assert_basic_query(&client, "gemini-3.1-flash-lite").await;
 }

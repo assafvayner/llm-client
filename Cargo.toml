@@ -1,11 +1,11 @@
 [package]
-name = "llm-client"
+name = "llmeh"
 version = "0.0.1"
 edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
 authors = ["Assaf Vayner <assafvayner@gmail.com>"]
-repository = "https://github.com/assafvayner/llm-client"
+repository = "https://github.com/assafvayner/llmeh"
 description = "A provider-agnostic LLM client abstraction with implementations for Hugging Face, Claude, OpenAI, Gemini, Ollama etc."
 keywords = ["llm", "ai", "openai", "anthropic", "client"]
 categories = ["api-bindings"]

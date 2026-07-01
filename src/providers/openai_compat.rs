@@ -284,7 +284,7 @@ impl OpenAICompatClientBuilder {
     }
 
     /// Override the [`reqwest::Client`] used for requests. When unset, a default
-    /// client with a `llm-client/<version>` user agent is built.
+    /// client with a `llmeh/<version>` user agent is built.
     pub fn client(mut self, client: reqwest::Client) -> Self {
         self.client = Some(client);
         self

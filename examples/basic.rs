@@ -4,7 +4,7 @@
 //!
 //! Run with: `HF_TOKEN=... cargo run --example basic`
 
-use llm_client::{HfClient, LLMClient, LLMRequest, Message};
+use llmeh::{HfClient, LLMClient, LLMRequest, Message};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

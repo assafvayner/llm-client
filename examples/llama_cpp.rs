@@ -9,7 +9,7 @@
 //! Unix domain socket: start the server bound to a socket, then pass the path
 //!   `cargo run --example llama_cpp -- /run/llama.sock`
 
-use llm_client::{LLMClient, LLMRequest, LlamaCppClient, Message};
+use llmeh::{LLMClient, LLMRequest, LlamaCppClient, Message};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

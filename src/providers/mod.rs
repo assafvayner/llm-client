@@ -54,7 +54,7 @@ pub use openai_compat::{OpenAICompatClient, OpenAICompatClientBuilder};
 #[cfg(any(feature = "claude", feature = "openai-compat", feature = "ollama"))]
 pub(crate) fn default_client() -> reqwest::Client {
     reqwest::Client::builder()
-        .user_agent(concat!("llm-client/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("llmeh/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(std::time::Duration::from_secs(10))
         .build()
         .expect("failed to build reqwest client")

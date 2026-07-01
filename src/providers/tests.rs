@@ -672,7 +672,7 @@ async fn llama_cpp_uds_streaming() {
 // ---------------------------------------------------------------------------
 //
 // Run with:
-//   source ~/hf/prod_token && cargo test -p llm-client hf_live -- --nocapture
+//   source ~/hf/prod_token && cargo test -p llmeh hf_live -- --nocapture
 
 #[cfg(feature = "hf")]
 #[tokio::test]

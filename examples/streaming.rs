@@ -4,7 +4,7 @@
 
 use std::io::Write;
 
-use llm_client::{ClaudeClient, LLMRequest, LLMStreamingClient, Message};
+use llmeh::{ClaudeClient, LLMRequest, LLMStreamingClient, Message};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

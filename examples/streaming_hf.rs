@@ -7,7 +7,7 @@
 
 use std::io::Write;
 
-use llm_client::{HfClient, LLMRequest, LLMStreamingClient, Message};
+use llmeh::{HfClient, LLMRequest, LLMStreamingClient, Message};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

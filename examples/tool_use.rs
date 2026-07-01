@@ -2,7 +2,7 @@
 //!
 //! Run with: `OPENAI_API_KEY=... cargo run --example tool_use`
 
-use llm_client::{LLMClient, LLMRequest, Message, OpenAIClient, ToolCall, ToolDef};
+use llmeh::{LLMClient, LLMRequest, Message, OpenAIClient, ToolCall, ToolDef};
 use serde_json::json;
 
 #[tokio::main]

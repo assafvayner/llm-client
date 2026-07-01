@@ -1,6 +1,6 @@
-# llm-client
+# llmeh
 
-`llm-client` is a provider-agnostic Rust client abstraction for large language
+`llmeh` is a provider-agnostic Rust client abstraction for large language
 model APIs. It gives applications one request and response shape, plus concrete
 clients for Claude, OpenAI, Gemini, Ollama, Hugging Face, and generic
 OpenAI-compatible chat completions servers.
@@ -22,14 +22,14 @@ Add the crate:
 
 ```toml
 [dependencies]
-llm-client = "0.1"
+llmeh = "0.1"
 ```
 
 By default, all provider features are enabled. To select a smaller provider set:
 
 ```toml
 [dependencies]
-llm-client = {
+llmeh = {
   version = "0.1",
   default-features = false,
   features = ["openai", "ollama"]
@@ -41,7 +41,7 @@ This crate uses Rust 1.88+ and edition 2024.
 ## Quick Start
 
 ```rust,no_run
-use llm_client::{LLMClient, LLMRequest, Message, OpenAIClient};
+use llmeh::{LLMClient, LLMRequest, Message, OpenAIClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -119,7 +119,7 @@ calls a text sink for each fragment and returns the fully assembled
 `LLMResponse` when the stream completes.
 
 ```rust,ignore
-use llm_client::{ClaudeClient, LLMRequest, LLMStreamingClient, Message};
+use llmeh::{ClaudeClient, LLMRequest, LLMStreamingClient, Message};
 
 let provider = ClaudeClient::from_env()?;
 let req = LLMRequest::builder("claude-sonnet-4-6")
@@ -138,7 +138,7 @@ Use `OpenAICompatClient` for services that expose an OpenAI-style
 `/chat/completions` endpoint:
 
 ```rust,ignore
-use llm_client::OpenAICompatClient;
+use llmeh::OpenAICompatClient;
 
 let provider = OpenAICompatClient::builder(
     "local-vllm",

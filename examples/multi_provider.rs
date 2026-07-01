@@ -6,7 +6,7 @@
 //! Run with: `cargo run --example multi_provider -- claude`
 //!           `cargo run --example multi_provider -- ollama`  (no key needed)
 
-use llm_client::{ClaudeClient, GeminiClient, HfClient, LLMClient, LLMRequest, Message, OllamaClient, OpenAIClient};
+use llmeh::{ClaudeClient, GeminiClient, HfClient, LLMClient, LLMRequest, Message, OllamaClient, OpenAIClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

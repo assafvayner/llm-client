@@ -8,7 +8,7 @@
 
 use std::time::Duration;
 
-use llm_client::{LLMClient, LLMRequest, Message, OpenAICompatClient};
+use llmeh::{LLMClient, LLMRequest, Message, OpenAICompatClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
